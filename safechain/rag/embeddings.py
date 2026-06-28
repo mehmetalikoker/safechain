@@ -24,12 +24,42 @@ class OpenAIEmbeddings:
         self.dimensions = dimensions
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        """Metin listesini vektör listesine dönüştürür.
+
+        Args:
+            texts: Gömülecek metin dizeleri listesi.
+
+        Returns:
+            Her metne karşılık gelen float vektörlerinin listesi.
+        """
         return self._call(texts)
 
     def embed_query(self, text: str) -> List[float]:
+        """Tek bir sorgu metnini vektöre dönüştürür.
+
+        Args:
+            text: Gömülecek sorgu metni.
+
+        Returns:
+            Metnin float vektörü.
+        """
         return self._call([text])[0]
 
     def _call(self, texts: List[str]) -> List[List[float]]:
+        """OpenAI Embeddings API'sine HTTP isteği gönderir.
+
+        Sonuçları indeks sırasına göre sıralayarak döner (API sıralamanın
+        korunmasını garanti etmez).
+
+        Args:
+            texts: Gömülecek metin dizeleri listesi.
+
+        Returns:
+            Sıralı float vektörlerinin listesi.
+
+        Raises:
+            RuntimeError: HTTP isteği başarısız olduğunda fırlatılır.
+        """
         body = {"model": self.model, "input": texts}
         if self.dimensions:
             body["dimensions"] = self.dimensions  # type: ignore[assignment]
@@ -62,9 +92,28 @@ class TFIDFEmbeddings:
 
     @staticmethod
     def _tokenize(text: str) -> List[str]:
+        """Metni küçük harfe çevirip kelime tokenlarına ayırır.
+
+        Args:
+            text: Tokenlanacak ham metin.
+
+        Returns:
+            Küçük harfli kelime tokenlarının listesi.
+        """
         return re.findall(r"\b\w+\b", text.lower())
 
     def fit(self, texts: List[str]) -> "TFIDFEmbeddings":
+        """Kelime dağarcığını ve IDF ağırlıklarını corpus'tan öğrenir.
+
+        Her kelime için ``log((N+1) / (df+1))`` formülüyle IDF hesaplanır
+        (sıfıra bölmeyi önlemek için +1 düzeltmesi uygulanır).
+
+        Args:
+            texts: Eğitim corpus'u; tüm belgeler.
+
+        Returns:
+            Kendisini (zincirleme kullanım için).
+        """
         N = len(texts)
         df: dict = {}
         for text in texts:
@@ -76,6 +125,17 @@ class TFIDFEmbeddings:
         return self
 
     def _vectorize(self, text: str) -> List[float]:
+        """Tek bir metni TF-IDF vektörüne dönüştürür.
+
+        TF (term frequency) = kelime sayısı / toplam token sayısı.
+        Sonuç vektörü ``vocab`` sözlüğündeki sırayla döner.
+
+        Args:
+            text: Vektörleştirilecek metin.
+
+        Returns:
+            Kelime dağarcığı boyutunda float vektörü.
+        """
         tokens = self._tokenize(text)
         n = len(tokens) or 1
         tf: dict = {}
@@ -84,11 +144,35 @@ class TFIDFEmbeddings:
         return [tf.get(w, 0.0) * self._idf.get(w, 0.0) for w in self._vocab]
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        """Metin listesini TF-IDF vektörlerine dönüştürür.
+
+        İlk çağrıda ``fit`` otomatik olarak çalıştırılır; corpus bu
+        metinlerden oluşur.
+
+        Args:
+            texts: Gömülecek metin dizeleri listesi.
+
+        Returns:
+            Her metne karşılık gelen TF-IDF vektörlerinin listesi.
+        """
         if not self._fitted:
             self.fit(texts)
         return [self._vectorize(t) for t in texts]
 
     def embed_query(self, text: str) -> List[float]:
+        """Tek bir sorgu metnini TF-IDF vektörüne dönüştürür.
+
+        ``embed_documents`` ile önceden ``fit`` edilmiş olması gerekir.
+
+        Args:
+            text: Gömülecek sorgu metni.
+
+        Returns:
+            Metnin TF-IDF vektörü.
+
+        Raises:
+            RuntimeError: ``embed_documents`` daha önce çağrılmamışsa fırlatılır.
+        """
         if not self._fitted:
             raise RuntimeError("embed_documents() ile önce fit edilmeli.")
         return self._vectorize(text)

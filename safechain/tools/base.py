@@ -13,6 +13,18 @@ _PY_TO_JSON: Dict[type, str] = {
 
 
 def _infer_json_schema(func: Callable) -> Dict[str, Any]:
+    """Fonksiyonun imzasından JSON Schema nesnesi türetir.
+
+    Python tip ipuçlarını (type hints) JSON Schema türlerine dönüştürür.
+    Varsayılan değeri olmayan parametreler ``required`` listesine eklenir.
+
+    Args:
+        func: İmzası incelenecek Python fonksiyonu.
+
+    Returns:
+        ``type``, ``properties`` ve ``required`` anahtarlarını içeren
+        JSON Schema sözlüğü.
+    """
     sig = inspect.signature(func)
     hints: Dict[str, Any] = {}
     try:
@@ -36,6 +48,17 @@ def _infer_json_schema(func: Callable) -> Dict[str, Any]:
 
 
 class Tool:
+    """LLM ajan döngüsünde çağrılabilecek bir aracı temsil eder.
+
+    Bir Python fonksiyonunu, açıklamasını ve JSON Schema'sını bir arada
+    tutar. Anthropic ve OpenAI araç tanımı formatlarına dönüşüm sağlar.
+
+    Attributes:
+        name: Aracın benzersiz adı (LLM'in çağırırken kullanacağı isim).
+        description: Aracın ne yaptığını açıklayan kısa metin.
+        func: Aracın gerçek iş mantığını yürüten Python fonksiyonu.
+    """
+
     def __init__(
         self,
         name: str,
@@ -43,22 +66,61 @@ class Tool:
         func: Callable,
         args_schema: Optional[Dict[str, Any]] = None,
     ) -> None:
+        """Tool oluşturur.
+
+        Args:
+            name: Aracın benzersiz adı.
+            description: LLM'e sunulacak kısa açıklama.
+            func: Çağrılacak Python fonksiyonu.
+            args_schema: Özel JSON Schema. ``None`` ise ``func`` imzasından
+                         otomatik türetilir.
+        """
         self.name = name
         self.description = description
         self.func = func
         self._args_schema = args_schema
 
     def run(self, **kwargs: Any) -> Any:
+        """Aracı keyword argümanlarla çalıştırır.
+
+        Args:
+            **kwargs: ``func``'ın beklediği parametre-değer çiftleri.
+
+        Returns:
+            ``func``'ın dönüş değeri.
+        """
         return self.func(**kwargs)
 
     def __call__(self, **kwargs: Any) -> Any:
+        """Aracı ``tool(arg=val)`` biçiminde çağrılabilir kılar.
+
+        Args:
+            **kwargs: ``run`` metoduna iletilecek parametre-değer çiftleri.
+
+        Returns:
+            ``func``'ın dönüş değeri.
+        """
         return self.run(**kwargs)
 
     @property
     def schema(self) -> Dict[str, Any]:
+        """Aracın parametre şemasını döner.
+
+        Özel şema verilmişse onu, yoksa fonksiyon imzasından türetilen
+        JSON Schema'yı döner.
+
+        Returns:
+            JSON Schema sözlüğü.
+        """
         return self._args_schema or _infer_json_schema(self.func)
 
     def to_anthropic_schema(self) -> Dict[str, Any]:
+        """Anthropic tool-use API formatında şema döner.
+
+        Returns:
+            ``name``, ``description`` ve ``input_schema`` anahtarlarını
+            içeren sözlük.
+        """
         return {
             "name": self.name,
             "description": self.description,
@@ -66,6 +128,12 @@ class Tool:
         }
 
     def to_openai_schema(self) -> Dict[str, Any]:
+        """OpenAI function-calling API formatında şema döner.
+
+        Returns:
+            ``type``, ``function.name``, ``function.description`` ve
+            ``function.parameters`` anahtarlarını içeren sözlük.
+        """
         return {
             "type": "function",
             "function": {
