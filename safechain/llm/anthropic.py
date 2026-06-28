@@ -13,6 +13,21 @@ _API_VERSION = "2023-06-01"
 
 
 class Claude(BaseLLM):
+    """Anthropic Claude modelleri için LLM entegrasyonu.
+
+    Harici SDK bağımlılığı olmadan stdlib ``urllib`` ile Anthropic
+    Messages API'sine doğrudan HTTP istekleri gönderir.
+
+    Attributes:
+        model: Kullanılacak Claude model kimliği.
+        api_key: Anthropic API anahtarı. Verilmezse ``ANTHROPIC_API_KEY``
+                 ortam değişkeninden okunur.
+        max_tokens: Yanıtta üretilebilecek maksimum token sayısı.
+        temperature: Örnekleme sıcaklığı (0.0–1.0). Düşük değerler daha
+                     deterministik, yüksek değerler daha yaratıcı yanıtlar üretir.
+        system: Tüm konuşmada geçerli olacak varsayılan sistem mesajı.
+    """
+
     def __init__(
         self,
         model: str = "claude-sonnet-4-6",
@@ -21,6 +36,19 @@ class Claude(BaseLLM):
         temperature: float = 1.0,
         system: Optional[str] = None,
     ) -> None:
+        """Claude istemcisini yapılandırır.
+
+        Args:
+            model: Kullanılacak Claude model kimliği.
+                   Varsayılan: "claude-sonnet-4-6".
+            api_key: Anthropic API anahtarı. ``None`` ise
+                     ``ANTHROPIC_API_KEY`` ortam değişkenine bakılır.
+            max_tokens: Yanıtta üretilebilecek maksimum token sayısı.
+                        Varsayılan: 4096.
+            temperature: Örnekleme sıcaklığı. Varsayılan: 1.0.
+            system: Konuşma genelinde kullanılacak sistem talimatı.
+                    Tek tek mesajlardaki "system" rolü bu değeri ezer.
+        """
         self.model = model
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
         self.max_tokens = max_tokens
@@ -33,13 +61,41 @@ class Claude(BaseLLM):
         tools: Optional[List[Dict[str, Any]]] = None,
         **kwargs: Any,
     ) -> Generation:
+        """Anthropic Messages API'sini çağırarak yanıt üretir.
+
+        "system" rolündeki mesajlar konuşmadan ayrıştırılıp API'nin
+        ayrı ``system`` parametresine taşınır (Anthropic protokolü gereği).
+        Araç çağrısı (tool_use) desteklenmektedir; sonuçlar
+        ``generation_info["tool_uses"]`` içinde döner.
+
+        Args:
+            messages: Konuşma geçmişi. "system", "user" ve "assistant"
+                      rollerini içerebilir.
+            tools: Anthropic tool-use şemasına uygun araç tanımları listesi.
+                   ``None`` ise araç desteği etkinleştirilmez.
+            **kwargs: API isteğinin gövdesine doğrudan eklenmek üzere ek
+                      parametreler (örn. ``top_p``, ``stop_sequences``).
+
+        Returns:
+            Generation nesnesi. Alanlar:
+            - ``text``: Birleştirilmiş metin yanıtı.
+            - ``generation_info["tool_uses"]``: Araç çağrıları listesi.
+            - ``generation_info["stop_reason"]``: Durdurma nedeni
+              ("end_turn", "tool_use" vb.).
+            - ``generation_info["usage"]``: Token kullanım istatistikleri.
+            - ``generation_info["raw_content"]``: Ham content block listesi.
+            - ``generation_info["raw"]``: API'den gelen tam JSON yanıtı.
+
+        Raises:
+            RuntimeError: HTTP isteği başarısız olduğunda hata kodu ve
+                          mesajıyla birlikte fırlatılır.
+        """
         headers = {
             "x-api-key": self.api_key,
             "anthropic-version": _API_VERSION,
             "content-type": "application/json",
         }
 
-        # Separate system messages from conversation
         system_text: Optional[str] = self.system
         api_messages: List[Dict[str, Any]] = []
         for m in messages:
