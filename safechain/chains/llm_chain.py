@@ -6,6 +6,19 @@ from safechain.schema import Message
 
 
 class LLMChain(Chain):
+    """Bir prompt şablonunu LLM ile birleştiren temel zincir.
+
+    Prompt şablonu ``PromptTemplate`` veya ``ChatPromptTemplate`` olabilir.
+    İsteğe bağlı bellek (memory) desteğiyle konuşma geçmişi otomatik
+    yönetilebilir.
+
+    Attributes:
+        llm: Metni üreten BaseLLM örneği.
+        prompt: Girişleri biçimlendiren şablon nesnesi.
+        output_key: Çıkış sözlüğünde kullanılacak anahtar adı.
+        memory: Konuşma geçmişini saklayan bellek nesnesi (opsiyonel).
+    """
+
     def __init__(
         self,
         llm: Any,
@@ -13,6 +26,18 @@ class LLMChain(Chain):
         output_key: str = "text",
         memory: Optional[Any] = None,
     ) -> None:
+        """LLMChain oluşturur.
+
+        Args:
+            llm: Yanıt üreten LLM nesnesi (BaseLLM örneği).
+            prompt: Giriş değişkenlerini metne dönüştüren şablon.
+                    ``format_messages`` metodu varsa chat prompt,
+                    yoksa ``format`` metodu çağrılır.
+            output_key: Çıkış sözlüğündeki anahtar adı.
+                        Varsayılan: "text".
+            memory: Konuşma geçmişini yönetecek bellek nesnesi.
+                    ``None`` ise bellek desteği etkin değildir.
+        """
         self.llm = llm
         self.prompt = prompt
         self.output_key = output_key
@@ -20,6 +45,15 @@ class LLMChain(Chain):
 
     @property
     def input_keys(self) -> List[str]:
+        """Kullanıcıdan beklenen giriş anahtarları.
+
+        Şablonun ``input_variables`` listesinden türetilir; bellek
+        tarafından sağlanan değişkenler çıkarılır (kullanıcı tarafından
+        tekrar verilmesine gerek yoktur).
+
+        Returns:
+            Kullanıcının sağlaması gereken anahtar isimleri.
+        """
         keys = list(getattr(self.prompt, "input_variables", []))
         if self.memory:
             mem_vars = set(getattr(self.memory, "memory_variables", []))
@@ -28,9 +62,25 @@ class LLMChain(Chain):
 
     @property
     def output_keys(self) -> List[str]:
+        """Zincirin ürettiği çıkış anahtarları.
+
+        Returns:
+            ``[output_key]`` listesi (tek elemanlı).
+        """
         return [self.output_key]
 
     def invoke(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+        """Prompt şablonunu doldurur, LLM'i çağırır ve çıktıyı döner.
+
+        Bellek etkinse geçmiş konuşmalar giriş değişkenlerine eklenir ve
+        yeni tur tamamlandıktan sonra belleğe kaydedilir.
+
+        Args:
+            inputs: Kullanıcının sağladığı giriş anahtar-değer çiftleri.
+
+        Returns:
+            ``{output_key: üretilen_metin}`` biçiminde çıkış sözlüğü.
+        """
         all_inputs = dict(inputs)
         if self.memory:
             all_inputs.update(self.memory.load_memory_variables(inputs))
@@ -54,4 +104,15 @@ class LLMChain(Chain):
         return {self.output_key: output}
 
     def predict(self, **kwargs: Any) -> str:
+        """Keyword argümanlarla zinciri çağırır ve metin yanıtı döner.
+
+        ``invoke`` metodunun sarmalayıcısıdır; çıkış sözlüğü yerine
+        doğrudan metin döner.
+
+        Args:
+            **kwargs: Şablonun beklediği giriş anahtar-değer çiftleri.
+
+        Returns:
+            LLM'in ürettiği metin yanıtı.
+        """
         return self.invoke(kwargs)[self.output_key]
