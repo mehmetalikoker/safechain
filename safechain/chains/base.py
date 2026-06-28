@@ -89,16 +89,21 @@ class Chain(ABC):
             inputs = {key: inputs}
         return self.invoke({**inputs, **kwargs})
 
-    def __or__(self, other: "Chain") -> "Chain":
-        """``chain_a | chain_b`` sözdizimi ile sıralı zincir oluşturur.
+    def __or__(self, other: Any) -> Any:
+        """``chain | diğer`` sözdizimini etkinleştirir.
 
-        İlk zincirin çıktısı ikinci zincirin girdisine otomatik aktarılır.
+        ``other`` bir ``BaseOutputParser`` ise çıktıyı otomatik ayrıştıran
+        ``ParsedChain`` döner. Aksi hâlde iki zinciri sıraya dizen
+        ``SimpleSequentialChain`` döner.
 
         Args:
-            other: Sıralamada bir sonraki Chain nesnesi.
+            other: Bir sonraki ``Chain`` ya da ``BaseOutputParser`` nesnesi.
 
         Returns:
-            İki zinciri birbirine bağlayan SimpleSequentialChain.
+            ``ParsedChain`` veya ``SimpleSequentialChain``.
         """
+        from safechain.output_parsers.base import BaseOutputParser, ParsedChain
+        if isinstance(other, BaseOutputParser):
+            return ParsedChain(chain=self, parser=other)
         from safechain.chains.sequential import SimpleSequentialChain
         return SimpleSequentialChain(chains=[self, other])

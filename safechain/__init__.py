@@ -16,6 +16,17 @@ from safechain.chains import Chain, LLMChain, SequentialChain, SimpleSequentialC
 from safechain.memory import ConversationBufferMemory, ConversationBufferWindowMemory
 from safechain.tools import Tool, tool
 from safechain.agents import AgentExecutor
+from safechain.output_parsers import (
+    BaseOutputParser,
+    CommaSeparatedListOutputParser,
+    JSONOutputParser,
+    NumberedListOutputParser,
+    OutputParserException,
+    ParsedChain,
+    ResponseSchema,
+    StrOutputParser,
+    StructuredOutputParser,
+)
 from safechain.rag import (
     CharacterTextSplitter,
     CSVLoader,
@@ -44,6 +55,10 @@ __all__ = [
     "ConversationBufferMemory", "ConversationBufferWindowMemory",
     # Tools & Agents
     "Tool", "tool", "AgentExecutor",
+    # Output Parsers
+    "BaseOutputParser", "OutputParserException", "ParsedChain",
+    "StrOutputParser", "CommaSeparatedListOutputParser", "NumberedListOutputParser",
+    "JSONOutputParser", "ResponseSchema", "StructuredOutputParser",
     # RAG
     "TextLoader", "JSONLoader", "CSVLoader", "DirectoryLoader",
     "CharacterTextSplitter", "RecursiveCharacterTextSplitter",
