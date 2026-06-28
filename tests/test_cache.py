@@ -21,12 +21,14 @@ class TestCacheKey(unittest.TestCase):
         return [Message(role="user", content="merhaba")]
 
     def test_same_input_same_key(self):
+        """Aynı girdi her çağrıda aynı önbellek anahtarını üretmeli."""
         msgs = self._messages()
         k1 = _cache_key("model-x", msgs, {})
         k2 = _cache_key("model-x", msgs, {})
         self.assertEqual(k1, k2)
 
     def test_different_model_different_key(self):
+        """Farklı model adları farklı önbellek anahtarı üretmeli."""
         msgs = self._messages()
         self.assertNotEqual(
             _cache_key("model-a", msgs, {}),
@@ -34,11 +36,13 @@ class TestCacheKey(unittest.TestCase):
         )
 
     def test_different_message_different_key(self):
+        """Farklı mesaj içerikleri farklı önbellek anahtarı üretmeli."""
         m1 = [Message(role="user", content="soru1")]
         m2 = [Message(role="user", content="soru2")]
         self.assertNotEqual(_cache_key("m", m1, {}), _cache_key("m", m2, {}))
 
     def test_different_kwargs_different_key(self):
+        """Farklı kwarg değerleri farklı önbellek anahtarı üretmeli."""
         msgs = self._messages()
         self.assertNotEqual(
             _cache_key("m", msgs, {"temperature": 0.5}),
@@ -46,17 +50,20 @@ class TestCacheKey(unittest.TestCase):
         )
 
     def test_kwargs_order_independent(self):
+        """Kwarg sırasından bağımsız aynı anahtar üretilmeli."""
         msgs = self._messages()
         k1 = _cache_key("m", msgs, {"a": 1, "b": 2})
         k2 = _cache_key("m", msgs, {"b": 2, "a": 1})
         self.assertEqual(k1, k2)
 
     def test_returns_64_char_hex(self):
+        """Anahtar 64 karakterli geçerli hex değeri olmalı."""
         key = _cache_key("m", self._messages(), {})
         self.assertEqual(len(key), 64)
         int(key, 16)  # hex olduğunu doğrular
 
     def test_nonserializable_kwargs_ignored(self):
+        """JSON serileştirilemeyen kwargs yok sayılarak anahtar üretilmeli."""
         msgs = self._messages()
         obj = object()
         k1 = _cache_key("m", msgs, {"fn": obj})
@@ -74,26 +81,31 @@ class TestInMemoryCache(unittest.TestCase):
         self.gen = Generation(text="yanıt", generation_info={"stop_reason": "end_turn"})
 
     def test_miss_returns_none(self):
+        """Olmayan anahtar için None döndürülmeli."""
         self.assertIsNone(self.cache.lookup("bilinmeyen"))
 
     def test_update_and_lookup(self):
+        """Güncellenen değer lookup ile geri alınabilmeli."""
         self.cache.update("anahtar", self.gen)
         result = self.cache.lookup("anahtar")
         self.assertIsNotNone(result)
         self.assertEqual(result.text, "yanıt")
 
     def test_generation_info_preserved(self):
+        """generation_info alanları önbellekten bozulmadan okunmalı."""
         self.cache.update("k", self.gen)
         result = self.cache.lookup("k")
         self.assertEqual(result.generation_info["stop_reason"], "end_turn")
 
     def test_overwrite_existing(self):
+        """Aynı anahtar tekrar güncellendiğinde yeni değer saklanmalı."""
         self.cache.update("k", self.gen)
         new_gen = Generation(text="yeni yanıt")
         self.cache.update("k", new_gen)
         self.assertEqual(self.cache.lookup("k").text, "yeni yanıt")
 
     def test_clear(self):
+        """clear() tüm önbellek girişlerini silmeli."""
         self.cache.update("k1", self.gen)
         self.cache.update("k2", self.gen)
         self.cache.clear()
@@ -101,12 +113,14 @@ class TestInMemoryCache(unittest.TestCase):
         self.assertIsNone(self.cache.lookup("k2"))
 
     def test_len(self):
+        """__len__ önbellekteki girdi sayısını döndürmeli."""
         self.assertEqual(len(self.cache), 0)
         self.cache.update("a", self.gen)
         self.cache.update("b", self.gen)
         self.assertEqual(len(self.cache), 2)
 
     def test_independent_instances(self):
+        """Farklı InMemoryCache örnekleri bağımsız depolama kullanmalı."""
         cache2 = InMemoryCache()
         self.cache.update("k", self.gen)
         self.assertIsNone(cache2.lookup("k"))
@@ -125,41 +139,49 @@ class TestSQLiteCache(unittest.TestCase):
         self.cache.close()
 
     def test_miss_returns_none(self):
+        """Olmayan anahtar için None döndürülmeli."""
         self.assertIsNone(self.cache.lookup("yok"))
 
     def test_update_and_lookup(self):
+        """SQLite'a yazılan değer lookup ile geri alınabilmeli."""
         self.cache.update("k", self.gen)
         result = self.cache.lookup("k")
         self.assertIsNotNone(result)
         self.assertEqual(result.text, "db yanıtı")
 
     def test_generation_info_preserved(self):
+        """generation_info SQLite'tan doğru şekilde okunmalı."""
         self.cache.update("k", self.gen)
         result = self.cache.lookup("k")
         self.assertEqual(result.generation_info["usage"]["tokens"], 10)
 
     def test_overwrite(self):
+        """Aynı anahtara tekrar yazma mevcut kaydı güncellemeli."""
         self.cache.update("k", self.gen)
         self.cache.update("k", Generation(text="yeni"))
         self.assertEqual(self.cache.lookup("k").text, "yeni")
 
     def test_clear(self):
+        """clear() SQLite tablosundaki tüm satırları silmeli."""
         self.cache.update("k", self.gen)
         self.cache.clear()
         self.assertIsNone(self.cache.lookup("k"))
 
     def test_len(self):
+        """__len__ tablodaki kayıt sayısını döndürmeli."""
         self.assertEqual(len(self.cache), 0)
         self.cache.update("a", self.gen)
         self.assertEqual(len(self.cache), 1)
 
     def test_ttl_valid_entry(self):
+        """TTL süresi dolmamış kayıt lookup ile bulunabilmeli."""
         cache = SQLiteCache(":memory:", ttl=60)
         cache.update("k", self.gen)
         self.assertIsNotNone(cache.lookup("k"))
         cache.close()
 
     def test_ttl_expired_entry(self):
+        """TTL süresi dolan kayıt lookup ile bulunamaz ve None döndürülmeli."""
         cache = SQLiteCache(":memory:", ttl=0.01)
         cache.update("k", self.gen)
         time.sleep(0.05)
@@ -167,6 +189,7 @@ class TestSQLiteCache(unittest.TestCase):
         cache.close()
 
     def test_persistent_on_disk(self):
+        """Disk üzerindeki SQLite önbelleği yeniden yükleme sonrası okunabilmeli."""
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
             db_path = f.name
         try:
@@ -184,6 +207,7 @@ class TestSQLiteCache(unittest.TestCase):
             os.unlink(db_path)
 
     def test_complex_generation_info_serialized(self):
+        """Karmaşık generation_info SQLite'ta serileştirilip parse edilmeli."""
         gen = Generation(
             text="test",
             generation_info={
@@ -227,6 +251,7 @@ def _mock_http(body: dict):
 
 class TestLLMWithCache(unittest.TestCase):
     def test_claude_cache_hit_skips_api(self):
+        """Önbellekte aynı istek varken API tekrar çağrılmamalı."""
         cache = InMemoryCache()
         llm = Claude(api_key="test", cache=cache)
         msgs = [Message(role="user", content="test")]
@@ -245,6 +270,7 @@ class TestLLMWithCache(unittest.TestCase):
         self.assertEqual(gen1.text, gen2.text)
 
     def test_claude_different_messages_different_cache_entry(self):
+        """Farklı mesajlar önbellekte farklı kayıtlar oluşturmalı."""
         cache = InMemoryCache()
         llm = Claude(api_key="test", cache=cache)
 
@@ -255,6 +281,7 @@ class TestLLMWithCache(unittest.TestCase):
         self.assertEqual(len(cache), 2)
 
     def test_openai_cache_hit_skips_api(self):
+        """OpenAI ile önbellek isabetiyle API atlanmalı."""
         cache = InMemoryCache()
         llm = OpenAI(api_key="test", cache=cache)
         msgs = [Message(role="user", content="merhaba")]
@@ -272,6 +299,7 @@ class TestLLMWithCache(unittest.TestCase):
         self.assertEqual(call_count, 1)
 
     def test_no_cache_always_calls_api(self):
+        """cache=None iken her çağrı API'ye gitmelidir."""
         llm = Claude(api_key="test")  # cache=None
         msgs = [Message(role="user", content="test")]
 
@@ -288,6 +316,7 @@ class TestLLMWithCache(unittest.TestCase):
         self.assertEqual(call_count, 2)
 
     def test_sqlite_cache_with_llm(self):
+        """SQLite önbelleği LLM ile entegre çalışmalı."""
         cache = SQLiteCache(":memory:")
         llm = Claude(api_key="test", cache=cache)
         msgs = [Message(role="user", content="kalıcı soru")]
@@ -300,6 +329,7 @@ class TestLLMWithCache(unittest.TestCase):
         cache.close()
 
     def test_top_level_import(self):
+        """Cache sınıfları safechain modülünden import edilebilmeli."""
         from safechain import InMemoryCache, SQLiteCache
         self.assertTrue(True)
 

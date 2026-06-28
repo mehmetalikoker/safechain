@@ -34,26 +34,32 @@ class TestChainBase(unittest.TestCase):
         self.chain = ConcreteChain()
 
     def test_invoke(self):
+        """Chain.invoke() giriş sözlüğünü işleyerek çıktı sözlüğü döndürmeli."""
         result = self.chain.invoke({"input": "merhaba"})
         self.assertEqual(result["output"], "MERHABA")
 
     def test_run_positional(self):
+        """run() ile pozisyonel argüman chain'in tek girişine atanmalı."""
         result = self.chain.run("dünya")
         self.assertEqual(result, "DÜNYA")
 
     def test_run_keyword(self):
+        """run() ile anahtar kelime argümanı doğru işlenmeli."""
         result = self.chain.run(input="python")
         self.assertEqual(result, "PYTHON")
 
     def test_call_with_string(self):
+        """__call__ string girişi invoke'a iletmeli."""
         result = self.chain("test")
         self.assertEqual(result["output"], "TEST")
 
     def test_call_with_dict(self):
+        """__call__ sözlük girişini doğrudan invoke'a iletmeli."""
         result = self.chain({"input": "dict"})
         self.assertEqual(result["output"], "DICT")
 
     def test_pipe_creates_sequential(self):
+        """| operatörü iki chain'i SimpleSequentialChain ile birleştirmeli."""
         chain2 = ConcreteChain()
         seq = self.chain | chain2
         self.assertIsInstance(seq, SimpleSequentialChain)
@@ -61,6 +67,7 @@ class TestChainBase(unittest.TestCase):
 
 class TestLLMChain(unittest.TestCase):
     def test_basic_invoke_with_prompt_template(self):
+        """PromptTemplate ile LLMChain çağrısı LLM'e iletilmeli."""
         llm = _mock_llm("cevap")
         prompt = PromptTemplate.from_template("{soru}")
         chain = LLMChain(llm=llm, prompt=prompt)
@@ -69,6 +76,7 @@ class TestLLMChain(unittest.TestCase):
         llm.generate.assert_called_once()
 
     def test_basic_invoke_with_chat_prompt(self):
+        """ChatPromptTemplate ile LLMChain doğru çalışmalı."""
         llm = _mock_llm("chat cevap")
         prompt = ChatPromptTemplate.from_messages([("user", "{q}")])
         chain = LLMChain(llm=llm, prompt=prompt)
@@ -76,6 +84,7 @@ class TestLLMChain(unittest.TestCase):
         self.assertEqual(result["text"], "chat cevap")
 
     def test_custom_output_key(self):
+        """output_key parametresi çıktı sözlüğü anahtarını belirlemeli."""
         llm = _mock_llm("sonuç")
         prompt = PromptTemplate.from_template("{x}")
         chain = LLMChain(llm=llm, prompt=prompt, output_key="sonuç")
@@ -83,6 +92,7 @@ class TestLLMChain(unittest.TestCase):
         self.assertIn("sonuç", result)
 
     def test_predict(self):
+        """predict() invoke() sonucunun metin kısmını döndürmeli."""
         llm = _mock_llm("predict yanıtı")
         prompt = PromptTemplate.from_template("{x}")
         chain = LLMChain(llm=llm, prompt=prompt)
@@ -90,6 +100,7 @@ class TestLLMChain(unittest.TestCase):
         self.assertEqual(result, "predict yanıtı")
 
     def test_input_keys_without_memory(self):
+        """Bellek yokken input_keys şablondaki değişkenlerden oluşmalı."""
         llm = _mock_llm()
         prompt = PromptTemplate.from_template("{a} ve {b}")
         chain = LLMChain(llm=llm, prompt=prompt)
@@ -97,6 +108,7 @@ class TestLLMChain(unittest.TestCase):
         self.assertIn("b", chain.input_keys)
 
     def test_input_keys_excludes_memory_variables(self):
+        """Bellek değişkenleri input_keys listesinden çıkarılmalı."""
         from safechain.memory.buffer import ConversationBufferMemory
         llm = _mock_llm()
         prompt = PromptTemplate.from_template("{history} {input}")
@@ -106,12 +118,14 @@ class TestLLMChain(unittest.TestCase):
         self.assertNotIn("history", chain.input_keys)
 
     def test_output_keys(self):
+        """Varsayılan output_keys ['text'] olmalı."""
         llm = _mock_llm()
         prompt = PromptTemplate.from_template("{x}")
         chain = LLMChain(llm=llm, prompt=prompt)
         self.assertEqual(chain.output_keys, ["text"])
 
     def test_memory_is_updated_after_invoke(self):
+        """Invoke sonrasında belleğe hem kullanıcı hem bot mesajı eklenmeli."""
         from safechain.memory.buffer import ConversationBufferMemory
         llm = _mock_llm("bot cevabı")
         prompt = PromptTemplate.from_template("{history}\n{input}")
@@ -129,6 +143,7 @@ class TestSimpleSequentialChain(unittest.TestCase):
         return LLMChain(llm=llm, prompt=prompt, output_key="text")
 
     def test_two_chains(self):
+        """İki chain sırayla çalışmalı; ilkinin çıktısı ikinciye girdi olmalı."""
         llm1 = _mock_llm("ara çıktı")
         llm2 = _mock_llm("nihai çıktı")
         c1 = LLMChain(llm=llm1, prompt=PromptTemplate.from_template("{text}"), output_key="text")
@@ -138,24 +153,28 @@ class TestSimpleSequentialChain(unittest.TestCase):
         self.assertEqual(result["text"], "nihai çıktı")
 
     def test_input_keys_from_first_chain(self):
+        """Zincirin input_keys'i ilk zincirden alınmalı."""
         c1 = self._make_chain("a")
         c2 = self._make_chain("b")
         seq = SimpleSequentialChain(chains=[c1, c2])
         self.assertEqual(seq.input_keys, c1.input_keys)
 
     def test_output_keys_from_last_chain(self):
+        """Zincirin output_keys'i son zincirden alınmalı."""
         c1 = self._make_chain("a")
         c2 = self._make_chain("b")
         seq = SimpleSequentialChain(chains=[c1, c2])
         self.assertEqual(seq.output_keys, c2.output_keys)
 
     def test_pipe_syntax(self):
+        """| operatörü SimpleSequentialChain oluşturmalı."""
         c1 = self._make_chain("ara")
         c2 = self._make_chain("son")
         seq = c1 | c2
         self.assertIsInstance(seq, SimpleSequentialChain)
 
     def test_verbose_does_not_break(self):
+        """verbose=True modu hatasız çalışmalı."""
         import io, sys
         c1 = self._make_chain("x")
         c2 = self._make_chain("y")
@@ -169,6 +188,7 @@ class TestSimpleSequentialChain(unittest.TestCase):
 
 class TestSequentialChain(unittest.TestCase):
     def test_explicit_io_variables(self):
+        """Açık giriş/çıkış değişkenleri doğru yönlendirilmeli."""
         llm1 = _mock_llm("çevrilmiş metin")
         llm2 = _mock_llm("özetlenmiş metin")
         c1 = LLMChain(
@@ -191,6 +211,7 @@ class TestSequentialChain(unittest.TestCase):
         self.assertNotIn("çeviri", result)
 
     def test_input_output_keys(self):
+        """input_variables ve output_variables doğru atanmalı."""
         c1 = LLMChain(
             llm=_mock_llm("x"),
             prompt=PromptTemplate.from_template("{a}"),

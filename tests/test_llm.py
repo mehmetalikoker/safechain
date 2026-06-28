@@ -70,19 +70,23 @@ class TestClaudeGenerate(unittest.TestCase):
             return llm.generate([Message(role="user", content="test")])
 
     def test_returns_generation(self):
+        """Başarılı API yanıtı Generation nesnesi döndürmeli."""
         gen = self._call()
         self.assertIsInstance(gen, Generation)
         self.assertEqual(gen.text, "Merhaba!")
 
     def test_stop_reason_in_info(self):
+        """generation_info'da stop_reason alanı bulunmalı."""
         gen = self._call()
         self.assertEqual(gen.generation_info["stop_reason"], "end_turn")
 
     def test_usage_in_info(self):
+        """generation_info'da usage token istatistikleri bulunmalı."""
         gen = self._call()
         self.assertIn("usage", gen.generation_info)
 
     def test_tool_use_response(self):
+        """tool_use yanıtı generation_info['tool_uses'] listesini doldurmalı."""
         gen = self._call(ANTHROPIC_TOOL_RESPONSE)
         self.assertEqual(gen.generation_info["stop_reason"], "tool_use")
         self.assertEqual(len(gen.generation_info["tool_uses"]), 1)
@@ -110,6 +114,7 @@ class TestClaudeGenerate(unittest.TestCase):
         self.assertNotIn("system", roles)
 
     def test_http_error_raises_runtime_error(self):
+        """HTTP hata kodu RuntimeError olarak yükseltilmeli."""
         import urllib.error
         error = urllib.error.HTTPError(
             url="", code=401, msg="Unauthorized",
@@ -122,22 +127,26 @@ class TestClaudeGenerate(unittest.TestCase):
         self.assertIn("401", str(ctx.exception))
 
     def test_predict_shortcut(self):
+        """predict() tek metin prompt'u için kısa yol olmalı."""
         with patch("urllib.request.urlopen", return_value=_mock_response(ANTHROPIC_RESPONSE)):
             llm = Claude(api_key="key")
             result = llm.predict("merhaba")
         self.assertEqual(result, "Merhaba!")
 
     def test_call_operator(self):
+        """__call__ operatörü predict() ile aynı şekilde çalışmalı."""
         with patch("urllib.request.urlopen", return_value=_mock_response(ANTHROPIC_RESPONSE)):
             llm = Claude(api_key="key")
             result = llm("merhaba")
         self.assertEqual(result, "Merhaba!")
 
     def test_default_model(self):
+        """Varsayılan model 'claude-sonnet-4-6' olmalı."""
         llm = Claude(api_key="key")
         self.assertEqual(llm.model, "claude-sonnet-4-6")
 
     def test_system_prompt_attribute(self):
+        """system parametresi doğru şekilde saklanmalı."""
         llm = Claude(api_key="key", system="Her zaman Türkçe yanıt ver.")
         self.assertEqual(llm.system, "Her zaman Türkçe yanıt ver.")
 
@@ -150,15 +159,18 @@ class TestOpenAIGenerate(unittest.TestCase):
             return llm.generate([Message(role="user", content="test")])
 
     def test_returns_generation(self):
+        """Başarılı OpenAI yanıtı Generation nesnesi döndürmeli."""
         gen = self._call()
         self.assertIsInstance(gen, Generation)
         self.assertEqual(gen.text, "Merhaba!")
 
     def test_finish_reason_in_info(self):
+        """generation_info'da finish_reason alanı bulunmalı."""
         gen = self._call()
         self.assertEqual(gen.generation_info["finish_reason"], "stop")
 
     def test_tool_calls_response(self):
+        """tool_calls yanıtı generation_info['tool_calls'] listesini doldurmalı."""
         gen = self._call(OPENAI_TOOL_RESPONSE)
         self.assertEqual(gen.generation_info["finish_reason"], "tool_calls")
         calls = gen.generation_info["tool_calls"]
@@ -166,6 +178,7 @@ class TestOpenAIGenerate(unittest.TestCase):
         self.assertEqual(calls[0]["function"]["name"], "hesapla")
 
     def test_http_error_raises_runtime_error(self):
+        """HTTP hata kodu RuntimeError olarak yükseltilmeli."""
         import urllib.error
         error = urllib.error.HTTPError(
             url="", code=429, msg="Rate limit",
@@ -178,16 +191,19 @@ class TestOpenAIGenerate(unittest.TestCase):
         self.assertIn("429", str(ctx.exception))
 
     def test_predict_messages(self):
+        """predict_messages() Message listesi alıp metin döndürmeli."""
         with patch("urllib.request.urlopen", return_value=_mock_response(OPENAI_RESPONSE)):
             llm = OpenAI(api_key="key")
             result = llm.predict_messages([Message(role="user", content="hi")])
         self.assertEqual(result, "Merhaba!")
 
     def test_base_url_trailing_slash_stripped(self):
+        """base_url sonundaki / karakteri otomatik temizlenmeli."""
         llm = OpenAI(api_key="key", base_url="https://api.openai.com/v1/")
         self.assertEqual(llm.base_url, "https://api.openai.com/v1")
 
     def test_default_model(self):
+        """Varsayılan model 'gpt-4o' olmalı."""
         llm = OpenAI(api_key="key")
         self.assertEqual(llm.model, "gpt-4o")
 

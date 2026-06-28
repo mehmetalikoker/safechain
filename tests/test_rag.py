@@ -30,6 +30,7 @@ def _tmp_file(content: str, suffix: str = ".txt") -> str:
 
 class TestTextLoader(unittest.TestCase):
     def test_load_single_document(self):
+        """Metin dosyası tek Document olarak yüklenmeli."""
         path = _tmp_file("Merhaba dünya")
         try:
             docs = TextLoader(path).load()
@@ -40,6 +41,7 @@ class TestTextLoader(unittest.TestCase):
             os.unlink(path)
 
     def test_metadata_has_source(self):
+        """Yüklenen belgenin metadata'sında source alanı bulunmalı."""
         path = _tmp_file("içerik")
         try:
             doc = TextLoader(path).load()[0]
@@ -48,6 +50,7 @@ class TestTextLoader(unittest.TestCase):
             os.unlink(path)
 
     def test_encoding_parameter(self):
+        """UTF-8 kodlama parametresi özel karakterleri doğru okumalı."""
         path = _tmp_file("özel karakterler: çğıöşü", suffix=".txt")
         try:
             docs = TextLoader(path, encoding="utf-8").load()
@@ -58,6 +61,7 @@ class TestTextLoader(unittest.TestCase):
 
 class TestJSONLoader(unittest.TestCase):
     def test_load_list(self):
+        """JSON listesi her öğeyi ayrı Document'e dönüştürmeli."""
         path = _tmp_file(json.dumps(["a", "b", "c"]), suffix=".json")
         try:
             docs = JSONLoader(path).load()
@@ -68,6 +72,7 @@ class TestJSONLoader(unittest.TestCase):
             os.unlink(path)
 
     def test_load_dict(self):
+        """JSON sözlüğü tek Document olarak yüklenmeli."""
         path = _tmp_file(json.dumps({"key": "value"}), suffix=".json")
         try:
             docs = JSONLoader(path).load()
@@ -77,6 +82,7 @@ class TestJSONLoader(unittest.TestCase):
             os.unlink(path)
 
     def test_list_of_dicts(self):
+        """Sözlük listesi her öğeyi ayrı Document'e dönüştürmeli."""
         data = [{"ad": "Ali"}, {"ad": "Veli"}]
         path = _tmp_file(json.dumps(data), suffix=".json")
         try:
@@ -89,6 +95,7 @@ class TestJSONLoader(unittest.TestCase):
 
 class TestCSVLoader(unittest.TestCase):
     def test_load_rows(self):
+        """CSV satırları ayrı Document nesnelerine dönüştürülmeli."""
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".csv", delete=False, newline="", encoding="utf-8"
         ) as f:
@@ -110,6 +117,7 @@ class TestCSVLoader(unittest.TestCase):
 
 class TestDirectoryLoader(unittest.TestCase):
     def test_loads_matching_files(self):
+        """Glob deseniyle eşleşen dosyalar yüklenmeli, diğerleri görmezden gelinmeli."""
         with tempfile.TemporaryDirectory() as tmpdir:
             for i, content in enumerate(["alfa", "beta", "gama"]):
                 with open(os.path.join(tmpdir, f"dosya{i}.txt"), "w", encoding="utf-8") as f:
@@ -122,6 +130,7 @@ class TestDirectoryLoader(unittest.TestCase):
             self.assertEqual(contents, {"alfa", "beta", "gama"})
 
     def test_custom_loader_class(self):
+        """Özel loader_cls parametresi ilgili dosya türüne uygulanmalı."""
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "data.json")
             with open(path, "w", encoding="utf-8") as f:
@@ -136,17 +145,20 @@ class TestDirectoryLoader(unittest.TestCase):
 
 class TestRecursiveCharacterTextSplitter(unittest.TestCase):
     def test_short_text_not_split(self):
+        """Boyut sınırının altındaki metin bölünmemeli."""
         splitter = RecursiveCharacterTextSplitter(chunk_size=1000)
         chunks = splitter.split_text("kısa metin")
         self.assertEqual(chunks, ["kısa metin"])
 
     def test_splits_on_double_newline(self):
+        """Çift satır sonu metin bölücü olarak kullanılmalı."""
         splitter = RecursiveCharacterTextSplitter(chunk_size=20, chunk_overlap=0)
         text = "Birinci paragraf.\n\nİkinci paragraf."
         chunks = splitter.split_text(text)
         self.assertGreater(len(chunks), 1)
 
     def test_all_content_preserved(self):
+        """Bölünme sonrası tüm içerik korunmalı."""
         splitter = RecursiveCharacterTextSplitter(chunk_size=50, chunk_overlap=10)
         text = "Kelime " * 100
         chunks = splitter.split_text(text)
@@ -155,6 +167,7 @@ class TestRecursiveCharacterTextSplitter(unittest.TestCase):
             self.assertIn(word, combined)
 
     def test_split_documents(self):
+        """Document listesi bölünüp her parça chunk metadata'sı almalı."""
         splitter = RecursiveCharacterTextSplitter(chunk_size=20, chunk_overlap=0)
         docs = [Document(page_content="a" * 50, metadata={"source": "test"})]
         result = splitter.split_documents(docs)
@@ -164,11 +177,13 @@ class TestRecursiveCharacterTextSplitter(unittest.TestCase):
             self.assertEqual(doc.metadata["chunk"], i)
 
     def test_empty_text(self):
+        """Boş metin boş liste döndürmeli."""
         splitter = RecursiveCharacterTextSplitter(chunk_size=100)
         chunks = splitter.split_text("")
         self.assertEqual(chunks, [])
 
     def test_hard_cut_when_no_separator(self):
+        """Uygun ayraç yoksa sabit boyutlu kesim uygulanmalı."""
         splitter = RecursiveCharacterTextSplitter(chunk_size=5, chunk_overlap=0, separators=[""])
         chunks = splitter.split_text("abcdefghij")
         for chunk in chunks:
@@ -177,12 +192,14 @@ class TestRecursiveCharacterTextSplitter(unittest.TestCase):
 
 class TestCharacterTextSplitter(unittest.TestCase):
     def test_basic_split(self):
+        """Belirtilen separator metin bölücü olarak kullanılmalı."""
         splitter = CharacterTextSplitter(separator="\n\n", chunk_size=10)
         text = "Birinci.\n\nIkinci.\n\nUcuncu."
         chunks = splitter.split_text(text)
         self.assertEqual(len(chunks), 3)
 
     def test_merges_small_parts(self):
+        """Küçük parçalar sığıyorsa birleştirilmeli."""
         splitter = CharacterTextSplitter(separator="\n\n", chunk_size=30)
         text = "ab\n\ncd"
         chunks = splitter.split_text(text)
@@ -190,6 +207,7 @@ class TestCharacterTextSplitter(unittest.TestCase):
         self.assertEqual(chunks[0], "ab\n\ncd")
 
     def test_split_documents(self):
+        """Document listesi bölünüp metadata korunmalı."""
         splitter = CharacterTextSplitter(separator="\n\n", chunk_size=20)
         docs = [Document(page_content="kısa\n\nparçalar", metadata={"id": 1})]
         result = splitter.split_documents(docs)
@@ -212,35 +230,42 @@ class TestTFIDFEmbeddings(unittest.TestCase):
         ]
 
     def test_embed_documents_returns_list(self):
+        """embed_documents() her belge için vektör döndürmeli."""
         vectors = self.emb.embed_documents(self.corpus)
         self.assertEqual(len(vectors), 3)
 
     def test_vector_length_consistent(self):
+        """Tüm belge vektörleri aynı boyutta olmalı."""
         vectors = self.emb.embed_documents(self.corpus)
         lengths = {len(v) for v in vectors}
         self.assertEqual(len(lengths), 1)
 
     def test_embed_query_after_fit(self):
+        """fit sonrasında embed_query() float listesi döndürmeli."""
         self.emb.embed_documents(self.corpus)
         vec = self.emb.embed_query("kedi")
         self.assertIsInstance(vec, list)
         self.assertTrue(all(isinstance(x, float) for x in vec))
 
     def test_embed_query_without_fit_raises(self):
+        """fit yapılmadan embed_query() RuntimeError yükseltmeli."""
         with self.assertRaises(RuntimeError):
             self.emb.embed_query("test")
 
     def test_fit_returns_self(self):
+        """fit() metodu zincir kullanımı için self döndürmeli."""
         result = self.emb.fit(self.corpus)
         self.assertIs(result, self.emb)
 
     def test_tokenize(self):
+        """_tokenize() küçük harfe çevirip kelimeleri ayırmalı."""
         tokens = TFIDFEmbeddings._tokenize("Merhaba Dünya 123")
         self.assertIn("merhaba", tokens)
         self.assertIn("dünya", tokens)
         self.assertIn("123", tokens)
 
     def test_similar_text_closer_than_different(self):
+        """Benzer metinler cosine benzerliğinde daha yakın olmalı."""
         emb = TFIDFEmbeddings()
         corpus = ["kedi ve köpek", "kedi ve kuş", "araba ve tren"]
         vecs = emb.embed_documents(corpus)
@@ -263,20 +288,24 @@ class TestTFIDFEmbeddings(unittest.TestCase):
 
 class TestCosine(unittest.TestCase):
     def test_identical_vectors(self):
+        """Özdeş vektörler arasındaki cosine benzerliği 1.0 olmalı."""
         v = [1.0, 2.0, 3.0]
         self.assertAlmostEqual(_cosine(v, v), 1.0, places=5)
 
     def test_orthogonal_vectors(self):
+        """Dik vektörler arasındaki cosine benzerliği 0.0 olmalı."""
         a = [1.0, 0.0]
         b = [0.0, 1.0]
         self.assertAlmostEqual(_cosine(a, b), 0.0, places=5)
 
     def test_zero_vector(self):
+        """Sıfır vektör içeren karşılaştırma 0.0 döndürmeli."""
         a = [0.0, 0.0]
         b = [1.0, 2.0]
         self.assertEqual(_cosine(a, b), 0.0)
 
     def test_opposite_vectors(self):
+        """Zıt vektörler arasındaki cosine benzerliği -1.0 olmalı."""
         a = [1.0, 0.0]
         b = [-1.0, 0.0]
         self.assertAlmostEqual(_cosine(a, b), -1.0, places=5)
@@ -289,11 +318,13 @@ class TestInMemoryVectorStore(unittest.TestCase):
         return InMemoryVectorStore.from_documents(docs, emb)
 
     def test_from_documents(self):
+        """from_documents() belgeleri ve gömülü vektörleri saklamalı."""
         store = self._store(["a b c", "d e f", "g h i"])
         self.assertEqual(len(store._documents), 3)
         self.assertEqual(len(store._embeddings), 3)
 
     def test_from_texts(self):
+        """from_texts() metin listesinden VectorStore oluşturmalı."""
         emb = TFIDFEmbeddings()
         store = InMemoryVectorStore.from_texts(
             ["metin1", "metin2"],
@@ -304,12 +335,14 @@ class TestInMemoryVectorStore(unittest.TestCase):
         self.assertEqual(store._documents[0].metadata["id"], 0)
 
     def test_similarity_search_returns_k(self):
+        """similarity_search() en yakın k belgeyi döndürmeli."""
         store = self._store(["elma armut", "kedi köpek", "araba tren", "ev bahçe"])
         results = store.similarity_search("elma", k=2)
         self.assertEqual(len(results), 2)
         self.assertIsInstance(results[0], Document)
 
     def test_similarity_search_with_score(self):
+        """similarity_search_with_score() skor değerleriyle sonuç döndürmeli."""
         store = self._store(["python programlama", "java programlama", "pişirme tarifleri"])
         results = store.similarity_search_with_score("programlama", k=2)
         self.assertEqual(len(results), 2)
@@ -318,6 +351,7 @@ class TestInMemoryVectorStore(unittest.TestCase):
         self.assertGreaterEqual(score, results[1][1])
 
     def test_add_documents(self):
+        """add_documents() yeni belgeleri mevcut depoya eklemeli."""
         emb = TFIDFEmbeddings()
         store = InMemoryVectorStore(emb)
         store.add_documents([Document(page_content="ilk metin")])
@@ -325,6 +359,7 @@ class TestInMemoryVectorStore(unittest.TestCase):
         self.assertEqual(len(store._documents), 2)
 
     def test_save_and_load(self):
+        """VectorStore diske kaydedilip yeniden yüklenebilmeli."""
         store = self._store(["merhaba dünya", "python harika"])
         with tempfile.TemporaryDirectory() as tmpdir:
             store.save(tmpdir)
@@ -335,6 +370,7 @@ class TestInMemoryVectorStore(unittest.TestCase):
         self.assertEqual(loaded._documents[0].page_content, store._documents[0].page_content)
 
     def test_as_retriever(self):
+        """as_retriever() VectorStoreRetriever nesnesi döndürmeli."""
         store = self._store(["a b", "c d"])
         retriever = store.as_retriever(k=1)
         self.assertIsInstance(retriever, VectorStoreRetriever)
@@ -348,11 +384,13 @@ class TestVectorStoreRetriever(unittest.TestCase):
         return store.as_retriever(k=k)
 
     def test_get_relevant_documents(self):
+        """get_relevant_documents() sorguya en yakın belgeleri döndürmeli."""
         ret = self._retriever(["elma", "armut", "kedi"], k=2)
         docs = ret.get_relevant_documents("elma")
         self.assertEqual(len(docs), 2)
 
     def test_call_operator(self):
+        """__call__ operatörü get_relevant_documents ile eşdeğer olmalı."""
         ret = self._retriever(["a b", "c d", "e f"], k=1)
         docs = ret("a")
         self.assertEqual(len(docs), 1)
