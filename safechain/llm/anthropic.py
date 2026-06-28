@@ -35,6 +35,7 @@ class Claude(BaseLLM):
         max_tokens: int = 4096,
         temperature: float = 1.0,
         system: Optional[str] = None,
+        cache: Optional[Any] = None,
     ) -> None:
         """Claude istemcisini yapılandırır.
 
@@ -48,14 +49,17 @@ class Claude(BaseLLM):
             temperature: Örnekleme sıcaklığı. Varsayılan: 1.0.
             system: Konuşma genelinde kullanılacak sistem talimatı.
                     Tek tek mesajlardaki "system" rolü bu değeri ezer.
+            cache: ``BaseCache`` örneği. Verilirse aynı prompt için
+                   API tekrar çağrılmaz. Varsayılan: ``None``.
         """
+        super().__init__(cache=cache)
         self.model = model
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
         self.max_tokens = max_tokens
         self.temperature = temperature
         self.system = system
 
-    def generate(
+    def _generate(
         self,
         messages: List[Message],
         tools: Optional[List[Dict[str, Any]]] = None,

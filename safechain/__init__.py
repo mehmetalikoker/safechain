@@ -3,6 +3,7 @@ safechain — LangChain'in sıfır bağımlılıklı, saf Python implementasyonu
 Sadece Python standart kütüphanesi kullanır (stdlib only).
 """
 from safechain.schema import Document, Generation, Message
+from safechain.cache import BaseCache, InMemoryCache, SQLiteCache
 
 from safechain.llm import BaseLLM, Claude, OpenAI
 from safechain.prompts import (
@@ -44,6 +45,8 @@ __version__ = "0.1.0"
 __all__ = [
     # Schema
     "Message", "Document", "Generation",
+    # Cache
+    "BaseCache", "InMemoryCache", "SQLiteCache",
     # LLM
     "BaseLLM", "Claude", "OpenAI",
     # Prompts

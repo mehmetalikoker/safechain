@@ -33,6 +33,7 @@ class OpenAI(BaseLLM):
         base_url: str = "https://api.openai.com/v1",
         max_tokens: int = 4096,
         temperature: float = 1.0,
+        cache: Optional[Any] = None,
     ) -> None:
         """OpenAI istemcisini yapılandırır.
 
@@ -45,14 +46,17 @@ class OpenAI(BaseLLM):
             max_tokens: Yanıtta üretilebilecek maksimum token sayısı.
                         Varsayılan: 4096.
             temperature: Örnekleme sıcaklığı. Varsayılan: 1.0.
+            cache: ``BaseCache`` örneği. Verilirse aynı prompt için
+                   API tekrar çağrılmaz. Varsayılan: ``None``.
         """
+        super().__init__(cache=cache)
         self.model = model
         self.api_key = api_key or os.environ.get("OPENAI_API_KEY", "")
         self.base_url = base_url.rstrip("/")
         self.max_tokens = max_tokens
         self.temperature = temperature
 
-    def generate(
+    def _generate(
         self,
         messages: List[Message],
         tools: Optional[List[Dict[str, Any]]] = None,
