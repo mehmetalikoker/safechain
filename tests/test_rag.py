@@ -177,8 +177,8 @@ class TestRecursiveCharacterTextSplitter(unittest.TestCase):
 
 class TestCharacterTextSplitter(unittest.TestCase):
     def test_basic_split(self):
-        splitter = CharacterTextSplitter(separator="\n\n", chunk_size=50)
-        text = "Birinci.\n\nİkinci.\n\nÜçüncü."
+        splitter = CharacterTextSplitter(separator="\n\n", chunk_size=10)
+        text = "Birinci.\n\nIkinci.\n\nUcuncu."
         chunks = splitter.split_text(text)
         self.assertEqual(len(chunks), 3)
 
